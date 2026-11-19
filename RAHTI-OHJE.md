@@ -57,9 +57,23 @@ otettu käyttöön** ([CSC: Access to Rahti](https://docs.csc.fi/cloud/rahti/get
   Rahdin käyttö kuluttaa projektin laskutusyksiköitä (*Billing Units*,
   [Rahti billing](https://docs.csc.fi/cloud/rahti/get-started/billing/)).
 
-**Tunnilla yhteinen projekti:** kaikki käyttävät samaa projektia, joten nimeä omat resurssisi
-yksilöllisesti. Korvaa ohjeen komennoissa `hellodb` esim. muotoon `hellodb-etunimi`
-(nimi: pienet kirjaimet, numerot ja väliviivat). Älä poista tai muuta muiden resursseja.
+**Tunnilla yhteinen projekti – käytä omaa nimeä!** Kaikki käyttävät samaa Rahti-projektia,
+ja siinä jokaisella resurssilla (build, deployment, route, levy) on oltava yksilöllinen nimi.
+Jos kaksi opiskelijaa käyttää samaa nimeä, jälkimmäisen komennot epäonnistuvat virheeseen
+`already exists` tai, mikä pahempaa, päivittävät tai poistavat toisen opiskelijan sovelluksen.
+
+Siksi ohjeen komennot käyttävät muuttujaa `$APP`. Aseta se **jokaisessa uudessa
+terminaalissa** ennen Rahti-komentoja:
+
+```bash
+export APP=hellodb-etunimi     # esim. hellodb-matti; vain pienet kirjaimet a–z, numerot ja väliviiva, alle 30 merkkiä
+echo $APP                       # tarkista
+```
+
+Nimi päätyy myös sovelluksen osoitteeseen: `https://$APP-ltitest.2.rahtiapp.fi`.
+Ohjeen esimerkkitulosteet on ajettu nimellä `APP=hellodb`. Muuttuja toimii bashissa
+(Linux, WSL2, macOS, Git Bash). PowerShellissä kirjoita nimi suoraan komentoihin `$APP`:n tilalle.
+Älä koske muiden resursseihin: `oc get all` näyttää kaikkien sovellukset.
 
 ### Asennus ilman kirjautumista (Linux, WSL2, macOS, Windows)
 
@@ -156,20 +170,20 @@ Tunnin jälkeen voit mitätöidä kaikki tokenit poistamalla palvelutilin:
 | `oc get pods` / `oc get pods -w` | Podit (`-w` seuraa muutoksia, lopetus Ctrl-C). |
 | `oc get pvc,route,secret` | Muut resurssit pilkuilla eroteltuina. |
 | `oc describe pod <nimi>` | Yksityiskohdat ja **Events**: miksi pod ei käynnisty, eikö image löydy, onko muisti loppunut… |
-| `oc logs deployment/hellodb` | Sovelluksen loki (Springin konsolituloste). `-f` seuraa lokia. |
-| `oc logs -f bc/hellodb` | Viimeisimmän buildin loki. |
-| `oc exec deployment/hellodb -- ls -la /data` | Aja komento kontissa. |
-| `oc rsh deployment/hellodb` | Avaa shell konttiin. |
-| `oc port-forward deployment/hellodb 8080:8080` | Ohjaa podin portin omalle koneelle (`http://localhost:8080`) ilman julkista routea. |
-| `oc set env deployment/hellodb NIMI=arvo` | Aseta ympäristömuuttuja (aiheuttaa uudelleenkäynnistyksen). |
-| `oc set env deployment/hellodb --list` | Näytä ympäristömuuttujat. |
-| `oc rollout status deployment/hellodb` | Odota, että uusi versio on käynnissä. |
-| `oc rollout restart deployment/hellodb` | Käynnistä podit uudelleen. |
-| `oc rollout undo deployment/hellodb` | Palaa edelliseen versioon. |
-| `oc scale deployment/hellodb --replicas=0` | Pysäytä sovellus (ei kuluta resursseja). Käynnistys: `--replicas=1`. |
-| `oc delete all -l app=hellodb` | Poista sovelluksen resurssit labelin perusteella. |
+| `oc logs deployment/$APP` | Sovelluksen loki (Springin konsolituloste). `-f` seuraa lokia. |
+| `oc logs -f bc/$APP` | Viimeisimmän buildin loki. |
+| `oc exec deployment/$APP -- ls -la /data` | Aja komento kontissa. |
+| `oc rsh deployment/$APP` | Avaa shell konttiin. |
+| `oc port-forward deployment/$APP 8080:8080` | Ohjaa podin portin omalle koneelle (`http://localhost:8080`) ilman julkista routea. |
+| `oc set env deployment/$APP NIMI=arvo` | Aseta ympäristömuuttuja (aiheuttaa uudelleenkäynnistyksen). |
+| `oc set env deployment/$APP --list` | Näytä ympäristömuuttujat. |
+| `oc rollout status deployment/$APP` | Odota, että uusi versio on käynnissä. |
+| `oc rollout restart deployment/$APP` | Käynnistä podit uudelleen. |
+| `oc rollout undo deployment/$APP` | Palaa edelliseen versioon. |
+| `oc scale deployment/$APP --replicas=0` | Pysäytä sovellus (ei kuluta resursseja). Käynnistys: `--replicas=1`. |
+| `oc delete all -l app=${APP:?}` | Poista sovelluksen resurssit labelin perusteella. |
 | `oc explain deployment.spec.strategy` | Dokumentaatio mille tahansa kentälle. |
-| `oc get deployment/hellodb -o yaml` | Resurssin koko määrittely YAML-muodossa. |
+| `oc get deployment/$APP -o yaml` | Resurssin koko määrittely YAML-muodossa. |
 
 Esimerkki: mitä projektissa on käynnissä?
 
@@ -345,12 +359,13 @@ Sitten:
 
 ```bash
 oc project ltitest
+export APP=hellodb-etunimi       # oma nimi, ks. kohta 2
 
-# Luo BuildConfig + ImageStream "hellodb" (kerran)
-oc new-build --name=hellodb --strategy=docker --binary --labels=app=hellodb
+# Luo BuildConfig + ImageStream "$APP" (kerran)
+oc new-build --name=$APP --strategy=docker --binary --labels=app=$APP
 
 # Lähetä kansio Rahtiin ja aja Dockerfile siellä
-oc start-build hellodb --from-dir=. --follow
+oc start-build $APP --from-dir=. --follow
 ```
 
 Tuloste (lyhennetty):
@@ -379,33 +394,33 @@ uudelleen jokaisella buildilla.
 
 ```bash
 # 1. Deployment + Service ImageStreamista
-oc new-app --image-stream=hellodb:latest --name=hellodb
+oc new-app --image-stream=$APP:latest --name=$APP
 
 # 2. Resurssit. Rahdin LimitRange: CPU:n limit/request-suhde saa olla enintään 5.
-oc set resources deployment/hellodb --requests=cpu=200m,memory=384Mi --limits=cpu=1,memory=512Mi
+oc set resources deployment/$APP --requests=cpu=200m,memory=384Mi --limits=cpu=1,memory=512Mi
 
 # 3. Recreate-strategia: vanha pod sammuu ennen kuin uusi käynnistyy.
 #    Pakollinen, koska RWO-levy ja H2-tiedosto eivät kestä kahta podia yhtä aikaa.
-oc patch deployment/hellodb -p '{"spec":{"strategy":{"type":"Recreate","rollingUpdate":null}}}'
+oc patch deployment/$APP -p '{"spec":{"strategy":{"type":"Recreate","rollingUpdate":null}}}'
 
 # 4. Pysyvä levy (PVC, 1 Gi) hakemistoon /data, jonne H2 kirjoittaa
-oc set volume deployment/hellodb --add --name=data --type=pvc \
-   --claim-name=hellodb-data --claim-size=1Gi --claim-mode=ReadWriteOnce --mount-path=/data
+oc set volume deployment/$APP --add --name=data --type=pvc \
+   --claim-name=$APP-data --claim-size=1Gi --claim-mode=ReadWriteOnce --mount-path=/data
 
 # 5. Terveystarkistukset. Sovelluksessa ei ole Actuatoria, joten käytetään /login-sivua,
 #    joka vastaa 200 ilman kirjautumista.
-oc set probe deployment/hellodb --readiness --get-url=http://:8080/login --initial-delay-seconds=10
-oc set probe deployment/hellodb --liveness  --get-url=http://:8080/login --initial-delay-seconds=60
+oc set probe deployment/$APP --readiness --get-url=http://:8080/login --initial-delay-seconds=10
+oc set probe deployment/$APP --liveness  --get-url=http://:8080/login --initial-delay-seconds=60
 
 # 6. Julkinen HTTPS-osoite. http:// ohjataan https://-osoitteeseen.
-oc create route edge hellodb --service=hellodb --port=8080-tcp --insecure-policy=Redirect
+oc create route edge $APP --service=$APP --port=8080-tcp --insecure-policy=Redirect
 
 # 7. Spring Boot 2.1 ei luota oletuksena reitittimen X-Forwarded-Proto-otsakkeeseen,
 #    vaan tekee uudelleenohjaukset (esim. /login) http://-osoitteisiin. Korjaus:
-oc set env deployment/hellodb SERVER_USE_FORWARD_HEADERS=true
+oc set env deployment/$APP SERVER_USE_FORWARD_HEADERS=true
 
-oc rollout status deployment/hellodb
-oc get route hellodb
+oc rollout status deployment/$APP
+oc get route $APP
 ```
 
 Tuloste (lyhennetty):
@@ -437,12 +452,12 @@ asetuksella `server.forward-headers-strategy`. Uusissa sovelluksissa käytä
 
 ### 5.6 Tarkistus
 
-Selaimella: <https://hellodb-ltitest.2.rahtiapp.fi/accounts> → luo tunnus → kirjaudu →
+Selaimella: `https://<APP>-ltitest.2.rahtiapp.fi/accounts` (esim. <https://hellodb-ltitest.2.rahtiapp.fi/accounts>) → luo tunnus → kirjaudu →
 kirjoita viesti. Saman voi tehdä komentoriviltä:
 
 ```bash
-U=https://hellodb-ltitest.2.rahtiapp.fi
-curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://hellodb-ltitest.2.rahtiapp.fi/login
+U=https://$APP-ltitest.2.rahtiapp.fi
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://$APP-ltitest.2.rahtiapp.fi/login
 curl -s -o /dev/null -w '%{http_code}\n' -d 'username=rahtitesti&password=Testi-123' $U/accounts
 curl -s -c keksit -b keksit -o /dev/null -w '%{http_code} %{redirect_url}\n' \
      -d 'username=rahtitesti&password=Testi-123' $U/login
@@ -461,7 +476,7 @@ Terveisiä Rahdista                                      ← viesti tallessa
 Viesti oli edelleen tallessa, eli tietokanta on PVC:llä eikä podin väliaikaisella levyllä:
 
 ```text
-$ oc exec deployment/hellodb -- sh -c 'id; ls -la /data'
+$ oc exec deployment/$APP -- sh -c 'id; ls -la /data'
 uid=1010640000(1010640000) gid=0(root) groups=0(root),1010640000(1010640000)
 -rw-rw-r--+ 1 1010640000 1010640000 36864 Nov 19 06:27 database.mv.db
 drwxrws---+ 2 root       1010640000 16384 Nov 19 06:26 lost+found
@@ -472,7 +487,7 @@ Tulosteesta näkyy myös Rahdin satunnainen UID (1010640000) ja ryhmä 0.
 Lokin tarkistus:
 
 ```text
-$ oc logs deployment/hellodb | grep -E 'Started|Picked'
+$ oc logs deployment/$APP | grep -E 'Started|Picked'
 Picked up JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75 -Djava.io.tmpdir=/tmp
 ... Started HelloDbAuthenticationApplication in 11.243 seconds (JVM running for 12.101)
 ```
@@ -482,19 +497,19 @@ Picked up JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75 -Djava.io.tmpdir=/tmp
 Kun koodi muuttuu:
 
 ```bash
-oc start-build hellodb --from-dir=. --follow
+oc start-build $APP --from-dir=. --follow
 ```
 
-Uusi image päivittää ImageStreamin `hellodb:latest`, ja Deployment vaihtaa uuteen versioon
-automaattisesti (Recreate: hetken katko). Seuraa päivitystä: `oc rollout status deployment/hellodb`.
-Jos jokin menee rikki: `oc rollout undo deployment/hellodb`.
+Uusi image päivittää ImageStreamin `$APP:latest`, ja Deployment vaihtaa uuteen versioon
+automaattisesti (Recreate: hetken katko). Seuraa päivitystä: `oc rollout status deployment/$APP`.
+Jos jokin menee rikki: `oc rollout undo deployment/$APP`.
 
 ### Vaihtoehto: build omalla koneella ja push Rahtiin (tapa C)
 
 ```bash
 podman login -u unused -p "$(oc whoami -t)" image-registry.apps.2.rahti.csc.fi
-podman build -t image-registry.apps.2.rahti.csc.fi/ltitest/hellodb:latest .
-podman push image-registry.apps.2.rahti.csc.fi/ltitest/hellodb:latest
+podman build -t image-registry.apps.2.rahti.csc.fi/ltitest/$APP:latest .
+podman push image-registry.apps.2.rahti.csc.fi/ltitest/$APP:latest
 ```
 
 Push päivittää saman ImageStreamin, joten Deployment päivittyy samalla tavalla.
@@ -521,17 +536,17 @@ Push päivittää saman ImageStreamin, joten Deployment päivittyy samalla taval
 - Spring Boot 2.1 ja Java 11 ovat vanhoja, eikä niihin enää tule tietoturvapäivityksiä.
 
 Opetusesimerkkinä tämä käy, mutta pidä sovellus käynnissä vain tarvittaessa
-(`oc scale deployment/hellodb --replicas=0`).
+(`oc scale deployment/$APP --replicas=0`).
 
 ## 8. Siivous
 
-`oc set volume` ja `oc create route` eivät lisää resursseihin `app=hellodb`-labelia,
+`oc set volume` ja `oc create route` eivät lisää resursseihin `app=$APP`-labelia,
 joten ne poistetaan erikseen:
 
 ```bash
-oc delete all,imagestream,buildconfig -l app=hellodb
-oc delete route hellodb
-oc delete pvc hellodb-data          # HUOM: poistaa tietokannan pysyvästi
+oc delete all,imagestream,buildconfig -l app=${APP:?APP puuttuu}
+oc delete route ${APP:?APP puuttuu}
+oc delete pvc ${APP:?APP puuttuu}-data          # HUOM: poistaa tietokannan pysyvästi
 ```
 
 ## 9. Komentojen pikaopas
@@ -540,24 +555,25 @@ oc delete pvc hellodb-data          # HUOM: poistaa tietokannan pysyvästi
 # kerran
 oc login --token=… --server=https://api.2.rahti.csc.fi:6443
 oc project ltitest
-oc new-build --name=hellodb --strategy=docker --binary --labels=app=hellodb
-oc start-build hellodb --from-dir=. --follow
-oc new-app --image-stream=hellodb:latest --name=hellodb
-oc set resources deployment/hellodb --requests=cpu=200m,memory=384Mi --limits=cpu=1,memory=512Mi
-oc patch deployment/hellodb -p '{"spec":{"strategy":{"type":"Recreate","rollingUpdate":null}}}'
-oc set volume deployment/hellodb --add --name=data --type=pvc --claim-name=hellodb-data --claim-size=1Gi --mount-path=/data
-oc set probe deployment/hellodb --readiness --get-url=http://:8080/login --initial-delay-seconds=10
-oc set probe deployment/hellodb --liveness  --get-url=http://:8080/login --initial-delay-seconds=60
-oc create route edge hellodb --service=hellodb --port=8080-tcp --insecure-policy=Redirect
-oc set env deployment/hellodb SERVER_USE_FORWARD_HEADERS=true
+export APP=hellodb-etunimi       # oma yksilöllinen nimi, aseta joka terminaalissa
+oc new-build --name=$APP --strategy=docker --binary --labels=app=$APP
+oc start-build $APP --from-dir=. --follow
+oc new-app --image-stream=$APP:latest --name=$APP
+oc set resources deployment/$APP --requests=cpu=200m,memory=384Mi --limits=cpu=1,memory=512Mi
+oc patch deployment/$APP -p '{"spec":{"strategy":{"type":"Recreate","rollingUpdate":null}}}'
+oc set volume deployment/$APP --add --name=data --type=pvc --claim-name=$APP-data --claim-size=1Gi --mount-path=/data
+oc set probe deployment/$APP --readiness --get-url=http://:8080/login --initial-delay-seconds=10
+oc set probe deployment/$APP --liveness  --get-url=http://:8080/login --initial-delay-seconds=60
+oc create route edge $APP --service=$APP --port=8080-tcp --insecure-policy=Redirect
+oc set env deployment/$APP SERVER_USE_FORWARD_HEADERS=true
 
 # päivitys
-oc start-build hellodb --from-dir=. --follow
+oc start-build $APP --from-dir=. --follow
 
 # vianetsintä
 oc get pods
-oc logs -f deployment/hellodb
+oc logs -f deployment/$APP
 oc describe pod <pod>
 oc get events --sort-by=.lastTimestamp
-oc rsh deployment/hellodb
+oc rsh deployment/$APP
 ```
