@@ -6,7 +6,8 @@ Tämä ohje näyttää, miten Spring Boot -sovellus paketoidaan konttiin ja ajet
 Ohjeen esimerkkinä on tämän repon sovellus (Web-palvelinohjelmoinnin tehtävä *HelloDbAuthentication*)
 (Spring Boot 2.1, Spring Security, JPA + H2-tietokanta). Siitä tehdään **JDK 11** -kontti.
 Kaikki ohjeen komennot on ajettu oikeasti 19.11.2026, ja tulosteet ovat niistä ajoista
-(lyhennettyinä). Esimerkkisovellus pyöri osoitteessa `https://hellodb-ltitest.2.rahtiapp.fi`.
+(lyhennettyinä). Opettajan esimerkkisovellus on käynnissä osoitteessa
+<https://hellodb-docker-spring-intro.2.rahtiapp.fi>.
 
 Jos kontit ovat uusi asia, lue ensin [DOCKER-PERUSTEET.md](DOCKER-PERUSTEET.md).
 
@@ -28,14 +29,14 @@ Sisältö:
 
 | Käsite | Mitä se on |
 |---|---|
-| **Project** (namespace) | Oma "tila" Rahdissa. Projekti luodaan web-konsolissa, ja sille annetaan CSC-projektin numero (laskutus). Esimerkeissä projekti on `ltitest`. |
+| **Project** (namespace) | Oma "tila" Rahdissa. Projekti luodaan web-konsolissa, ja sille annetaan CSC-projektin numero (laskutus). Esimerkeissä projekti on `docker-spring-intro`. |
 | **BuildConfig** | Ohje kontin rakentamiseen Rahdissa: mistä lähdekoodi tulee ja millä strategialla (Docker, S2I) image rakennetaan. |
 | **Build** | Yksi BuildConfigin ajokerta (`hellodb-1`, `hellodb-2`, …). |
 | **ImageStream** | Rahdin sisäinen viittaus konttikuvaan (`hellodb:latest`). Kun buildi tuottaa uuden imagen, siihen kytketty Deployment päivittyy automaattisesti. |
 | **Deployment** | Kertoo, montako kopiota (podia) imagesta ajetaan, millä ympäristömuuttujilla, levyillä, resursseilla ja terveystarkistuksilla. |
 | **Pod** | Ajossa oleva kontti. Podit ovat kertakäyttöisiä: uudelleenkäynnistyksessä tilalle tulee uusi pod, ja sen paikallinen levy on tyhjä. |
 | **Service** | Klusterin sisäinen, pysyvä osoite podeille (`hellodb:8080`). |
-| **Route** | Julkinen osoite internetiin (`https://hellodb-ltitest.2.rahtiapp.fi`). Rahdin reititin hoitaa HTTPS:n. |
+| **Route** | Julkinen osoite internetiin (`https://hellodb-docker-spring-intro.2.rahtiapp.fi`). Rahdin reititin hoitaa HTTPS:n. |
 | **PersistentVolumeClaim (PVC)** | Pysyvä levy, joka säilyy podin vaihtuessa. Tässä esimerkissä H2-tietokannan tiedosto on PVC:llä. |
 | **Secret / ConfigMap** | Salaisuudet (avaimet, salasanat) ja asetukset, jotka annetaan kontille ympäristömuuttujina tai tiedostoina. |
 
@@ -70,10 +71,11 @@ export APP=hellodb-etunimi     # esim. hellodb-matti; vain pienet kirjaimet a–
 echo $APP                       # tarkista
 ```
 
-Nimi päätyy myös sovelluksen osoitteeseen: `https://$APP-ltitest.2.rahtiapp.fi`.
+Nimi päätyy myös sovelluksen osoitteeseen: `https://$APP-docker-spring-intro.2.rahtiapp.fi`.
 Ohjeen esimerkkitulosteet on ajettu nimellä `APP=hellodb`. Muuttuja toimii bashissa
 (Linux, WSL2, macOS, Git Bash). PowerShellissä kirjoita nimi suoraan komentoihin `$APP`:n tilalle.
-Älä koske muiden resursseihin: `oc get all` näyttää kaikkien sovellukset.
+Älä koske muiden resursseihin: `oc get all` näyttää kaikkien sovellukset. Nimi `hellodb`
+on varattu opettajan esimerkkisovellukselle.
 
 ### Asennus ilman kirjautumista (Linux, WSL2, macOS, Windows)
 
@@ -119,18 +121,23 @@ Opettaja jakaa tunnilla kirjautumiskomennon:
 
 ```bash
 oc login --token=<opettajan antama token> --server=https://api.2.rahti.csc.fi:6443
-oc project ltitest
+oc project docker-spring-intro
 ```
 
 **Token on salasana.** Älä laita sitä git-repoon, Discordiin, kuvakaappauksiin, muistiinpanoihin
-tai ohjeisiin. Token on voimassa rajatun ajan (tyypillisesti tunnin ajan). Kun se vanhenee,
+tai ohjeisiin. Token on voimassa rajatun ajan (esim. 48 tuntia). Kun se vanhenee,
 komennot antavat virheen `error: You must be logged in to the server (Unauthorized)`.
 
-```bash
-$ oc whoami          # kuka olen (palvelutilin token näyttää system:serviceaccount:…)
-$ oc project ltitest # valitse projekti, johon seuraavat komennot kohdistuvat
-Already on project "ltitest" on server "https://api.2.rahti.csc.fi:6443".
+```text
+$ oc login --token=… --server=https://api.2.rahti.csc.fi:6443
+Logged into "https://api.2.rahti.csc.fi:6443" as "system:serviceaccount:docker-spring-intro:opiskelijat" using the token provided.
+
+You have one project on this server: "docker-spring-intro"
+$ oc whoami
+system:serviceaccount:docker-spring-intro:opiskelijat
 ```
+
+Token toimii vain projektissa `docker-spring-intro`. Muihin projekteihin sillä ei pääse.
 
 ### Kirjautuminen omalla CSC-tunnuksella (jos sinulla on oma projekti)
 
@@ -152,10 +159,10 @@ sinun nimissäsi. Tee sen sijaan projektiin palvelutili, jolla on oikeudet vain 
 ja luo sille määräaikainen token:
 
 ```bash
-oc project ltitest
+oc project docker-spring-intro
 oc create serviceaccount opiskelijat
 oc policy add-role-to-user edit -z opiskelijat      # saa luoda/muuttaa/poistaa resursseja tässä projektissa
-oc create token opiskelijat --duration=4h           # tulostaa tokenin, jaa se opiskelijoille
+oc create token opiskelijat --duration=48h          # tulostaa tokenin, jaa se opiskelijoille
 ```
 
 Tunnin jälkeen voit mitätöidä kaikki tokenit poistamalla palvelutilin:
@@ -358,7 +365,7 @@ cd docker-spring-intro
 Sitten:
 
 ```bash
-oc project ltitest
+oc project docker-spring-intro
 export APP=hellodb-etunimi       # oma nimi, ks. kohta 2
 
 # Luo BuildConfig + ImageStream "$APP" (kerran)
@@ -382,7 +389,7 @@ build.build.openshift.io/hellodb-1 started
 [1/2] STEP 1/6: FROM docker.io/library/maven:3.9-eclipse-temurin-11 AS build
 ...
 [2/2] STEP 8/10: ENTRYPOINT ["java","-jar","/app/app.jar"]
-Successfully pushed image-registry.openshift-image-registry.svc:5000/ltitest/hellodb@sha256:8e08…
+Successfully pushed image-registry.openshift-image-registry.svc:5000/docker-spring-intro/hellodb@sha256:8e08…
 Push successful
 ```
 
@@ -426,7 +433,7 @@ oc get route $APP
 Tuloste (lyhennetty):
 
 ```text
---> Found image 853b2b7 (20 seconds old) in image stream "ltitest/hellodb" under tag "latest"
+--> Found image 853b2b7 (20 seconds old) in image stream "docker-spring-intro/hellodb" under tag "latest"
 --> Creating resources ...
     deployment.apps "hellodb" created
     service "hellodb" created
@@ -441,7 +448,7 @@ deployment.apps/hellodb updated
 Waiting for deployment "hellodb" rollout to finish: 0 of 1 updated replicas are available...
 deployment "hellodb" successfully rolled out
 NAME      HOST/PORT                       PATH   SERVICES   PORT       TERMINATION     WILDCARD
-hellodb   hellodb-ltitest.2.rahtiapp.fi          hellodb    8080-tcp   edge/Redirect   None
+hellodb   hellodb-docker-spring-intro.2.rahtiapp.fi          hellodb    8080-tcp   edge/Redirect   None
 ```
 
 Routen osoite on muotoa `<nimi>-<projekti>.2.rahtiapp.fi`.
@@ -452,12 +459,12 @@ asetuksella `server.forward-headers-strategy`. Uusissa sovelluksissa käytä
 
 ### 5.6 Tarkistus
 
-Selaimella: `https://<APP>-ltitest.2.rahtiapp.fi/accounts` (esim. <https://hellodb-ltitest.2.rahtiapp.fi/accounts>) → luo tunnus → kirjaudu →
+Selaimella: `https://<APP>-docker-spring-intro.2.rahtiapp.fi/accounts` (esim. <https://hellodb-docker-spring-intro.2.rahtiapp.fi/accounts>) → luo tunnus → kirjaudu →
 kirjoita viesti. Saman voi tehdä komentoriviltä:
 
 ```bash
-U=https://$APP-ltitest.2.rahtiapp.fi
-curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://$APP-ltitest.2.rahtiapp.fi/login
+U=https://$APP-docker-spring-intro.2.rahtiapp.fi
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://$APP-docker-spring-intro.2.rahtiapp.fi/login
 curl -s -o /dev/null -w '%{http_code}\n' -d 'username=rahtitesti&password=Testi-123' $U/accounts
 curl -s -c keksit -b keksit -o /dev/null -w '%{http_code} %{redirect_url}\n' \
      -d 'username=rahtitesti&password=Testi-123' $U/login
@@ -466,9 +473,9 @@ curl -s -b keksit $U/messages | grep 'Terveisiä Rahdista'
 ```
 
 ```text
-302 https://hellodb-ltitest.2.rahtiapp.fi/login        ← http ohjautuu https:ään
+302 https://hellodb-docker-spring-intro.2.rahtiapp.fi/login        ← http ohjautuu https:ään
 302                                                     ← tunnus luotu
-302 https://hellodb-ltitest.2.rahtiapp.fi/              ← kirjautuminen onnistui
+302 https://hellodb-docker-spring-intro.2.rahtiapp.fi/              ← kirjautuminen onnistui
 Terveisiä Rahdista                                      ← viesti tallessa
 ```
 
@@ -508,8 +515,8 @@ Jos jokin menee rikki: `oc rollout undo deployment/$APP`.
 
 ```bash
 podman login -u unused -p "$(oc whoami -t)" image-registry.apps.2.rahti.csc.fi
-podman build -t image-registry.apps.2.rahti.csc.fi/ltitest/$APP:latest .
-podman push image-registry.apps.2.rahti.csc.fi/ltitest/$APP:latest
+podman build -t image-registry.apps.2.rahti.csc.fi/docker-spring-intro/$APP:latest .
+podman push image-registry.apps.2.rahti.csc.fi/docker-spring-intro/$APP:latest
 ```
 
 Push päivittää saman ImageStreamin, joten Deployment päivittyy samalla tavalla.
@@ -540,12 +547,11 @@ Opetusesimerkkinä tämä käy, mutta pidä sovellus käynnissä vain tarvittaes
 
 ## 8. Siivous
 
-`oc set volume` ja `oc create route` eivät lisää resursseihin `app=$APP`-labelia,
-joten ne poistetaan erikseen:
+Route perii servicen `app=$APP`-labelin, joten se poistuu samalla komennolla. Komennon
+`oc set volume` luoma levy (PVC) ei saa labelia, joten se poistetaan erikseen:
 
 ```bash
 oc delete all,imagestream,buildconfig -l app=${APP:?APP puuttuu}
-oc delete route ${APP:?APP puuttuu}
 oc delete pvc ${APP:?APP puuttuu}-data          # HUOM: poistaa tietokannan pysyvästi
 ```
 
@@ -554,7 +560,7 @@ oc delete pvc ${APP:?APP puuttuu}-data          # HUOM: poistaa tietokannan pysy
 ```bash
 # kerran
 oc login --token=… --server=https://api.2.rahti.csc.fi:6443
-oc project ltitest
+oc project docker-spring-intro
 export APP=hellodb-etunimi       # oma yksilöllinen nimi, aseta joka terminaalissa
 oc new-build --name=$APP --strategy=docker --binary --labels=app=$APP
 oc start-build $APP --from-dir=. --follow
