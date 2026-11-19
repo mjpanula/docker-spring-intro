@@ -1,0 +1,30 @@
+# Maven
+target/
+
+# H2-tietokantatiedostot (sovellus luo ./database.mv.db)
+*.mv.db
+*.trace.db
+*.lock.db
+
+# IDE:t
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+nbproject/
+nbactions.xml
+
+# Käyttöjärjestelmä
+.DS_Store
+Thumbs.db
+
+# Salaisuudet: tokenit, avaimet, ympäristömuuttujat
+.env
+*.pem
+*.key
+*.token
+
+# Ohjeen curl-esimerkin evästetiedosto
+keksit
